@@ -76,7 +76,7 @@ func (model ViewModel) View() string {
 
 	output := arrowCinStyle.Render(" >> ")
 	output += model.searchPhrase
-	output += lipgloss.NewStyle().Background(lipgloss.Color("11")).Render(" ")
+	output += lipgloss.NewStyle().Background(lipgloss.ANSIColor(11)).Render(" ")
 	output += "\n"
 	output += headerStyle.Render("--- GCM v0.0.1 --- " + GetGitVersion() + " --- ")
 	output += localValueStyle.Render(" L ")
@@ -148,16 +148,6 @@ func createInitialModel() ViewModel {
 		filteredOptions: options,
 		isExiting:       false,
 	}
-}
-
-func padWhitespace(length int) string {
-	result := ""
-
-	for i := 0; i < length; i++ {
-		result += " "
-	}
-
-	return result
 }
 
 func renderItem(item GitConfigProp, itemIndex, cursorIndex int) string {
