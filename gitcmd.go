@@ -6,18 +6,18 @@ import (
 )
 
 const (
-	TYPE_STRING = "string"
+	TYPE_STRING    = "string"
+	SOURCE__LOCAL  = "local"
+	SOURCE__GLOBAL = "global"
+	SOURCE__SYSTEM = "system"
 )
 
 type GitConfigEntry struct {
-	EntryStr string
-	Section  string
-	Key      string
-	Type     string
-	Value    map[string]string
+	Name  string
+	Value string
 }
 
-func GetGitConfigByLevel(source string) []GitConfigEntry {
+func GetGitConfigByLevel(source string) []GitConfigProp {
 	cmdOutputStr, err := executeCommand("git", "config", "--list", "--"+source)
 
 	if err != nil {
@@ -26,19 +26,25 @@ func GetGitConfigByLevel(source string) []GitConfigEntry {
 	}
 
 	entries := strings.Split(cmdOutputStr, "\n")
+	result := make([]GitConfigProp, len(entries))
 
-	result := make([]GitConfigEntry, len(entries))
-
-	for index, entryStr := range entries {
+	for i, entryStr := range entries {
 		split := strings.SplitN(entryStr, "=", 2)
 		location := strings.SplitN(split[0], ".", 2)
 
-		result[index].EntryStr = entryStr
-		result[index].Section = location[0]
-		result[index].Key = split[0]
-		result[index].Type = TYPE_STRING
-		result[index].Value = make(map[string]string)
-		result[index].Value[source] = split[1]
+		result[i].Type = GIT_CONFIG_PROP__TYPE_STRING
+		result[i].Section = location[0]
+		result[i].Key = location[1]
+		result[i].Values = GitConfigEntryValues{}
+
+		switch source {
+		case SOURCE__GLOBAL:
+			result[i].Values.Global = split[1]
+		case SOURCE__SYSTEM:
+			result[i].Values.System = split[1]
+		case SOURCE__LOCAL:
+			result[i].Values.Local = split[1]
+		}
 	}
 
 	return result
@@ -47,7 +53,7 @@ func GetGitConfigByLevel(source string) []GitConfigEntry {
 func GetGitVersion() string {
 	result, err := executeCommand("git", "version")
 	if err != nil {
-		return "git version ???"
+		return "git version ?.??.?"
 	}
 
 	return result
