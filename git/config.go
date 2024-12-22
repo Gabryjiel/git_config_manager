@@ -1,4 +1,4 @@
-package main
+package git
 
 import (
 	"fmt"
@@ -15,11 +15,11 @@ type GitConfigProp struct {
 	Values  GitConfigEntryValues
 }
 
-func (this *GitConfigProp) toString() string {
+func (this *GitConfigProp) String() string {
 	return fmt.Sprintf("%s.%s=%s / %s / %s", this.Section, this.Key, this.Values.System, this.Values.Global, this.Values.Local)
 }
 
-func (this *GitConfigProp) getName() string {
+func (this *GitConfigProp) GetName() string {
 	return fmt.Sprintf("%s.%s", this.Section, this.Key)
 }
 

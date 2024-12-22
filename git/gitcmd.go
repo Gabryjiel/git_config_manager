@@ -1,8 +1,10 @@
-package main
+package git
 
 import (
 	"log"
 	"strings"
+
+	"github.com/Gabryjiel/git_config_manager/utils"
 )
 
 const (
@@ -18,7 +20,7 @@ type GitConfigEntry struct {
 }
 
 func GetGitConfigByLevel(source string) []GitConfigProp {
-	cmdOutputStr, err := executeCommand("git", "config", "--list", "--"+source)
+	cmdOutputStr, err := utils.ExecuteCommand("git", "config", "--list", "--"+source)
 
 	if err != nil {
 		log.Println("Failed", err)
@@ -51,7 +53,7 @@ func GetGitConfigByLevel(source string) []GitConfigProp {
 }
 
 func GetGitVersion() string {
-	result, err := executeCommand("git", "version")
+	result, err := utils.ExecuteCommand("git", "version")
 	if err != nil {
 		return "git version ?.??.?"
 	}
