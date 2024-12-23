@@ -4,11 +4,18 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+type ModelIndex int
+
+const (
+	MODEL_SEARCH ModelIndex = iota
+	MODEL_SCOPE
+)
+
 type AppModel struct {
 	tea.Model
 	IsExiting         bool
 	models            []tea.Model
-	CurrentModelIndex int
+	CurrentModelIndex ModelIndex
 }
 
 func NewAppModel() AppModel {
@@ -18,7 +25,7 @@ func NewAppModel() AppModel {
 			NewSearchModel(),
 			NewScopeModel(),
 		},
-		CurrentModelIndex: 0,
+		CurrentModelIndex: MODEL_SEARCH,
 	}
 }
 
@@ -27,10 +34,19 @@ func (this AppModel) Init() tea.Cmd {
 }
 
 func (this AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	currentModel := this.models[this.CurrentModelIndex]
-	_, cmd := currentModel.Update(msg)
+	switch msg := msg.(type) {
+	case ModelIndex:
+		this.CurrentModelIndex = msg
+	case ExitCode:
+		this.IsExiting = true
+		return this, tea.Quit
+	}
 
-	return currentModel, cmd
+	currentModel := this.models[this.CurrentModelIndex]
+	newModel, cmd := currentModel.Update(msg)
+	this.models[this.CurrentModelIndex] = newModel
+
+	return this, cmd
 }
 
 func (this AppModel) View() string {

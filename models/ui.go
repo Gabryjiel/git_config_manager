@@ -29,7 +29,7 @@ func (this *TextField) removeLastWord() {
 type MenuCursor int
 
 func (this *MenuCursor) moveDown(max int) {
-	if int(*this) < max {
+	if *this < MenuCursor(max) {
 		*this++
 	}
 }

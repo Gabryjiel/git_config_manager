@@ -52,7 +52,7 @@ func (this SearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC:
-			return this, tea.Quit
+			return this, ExitProgram()
 		case tea.KeyCtrlW:
 			this.input.removeLastWord()
 			this.filteredOptions = git.FilterGitConfigProps(this.allOptions, this.input.Value)
@@ -69,9 +69,7 @@ func (this SearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			this.filteredOptions = git.FilterGitConfigProps(this.allOptions, this.input.Value)
 		case tea.KeyEnter:
 			if len(this.filteredOptions) > 0 {
-				scopeModel := ScopeModel{}
-				scopeModel.prop = this.filteredOptions[int(this.cursor)]
-				return scopeModel, nil
+				return this, tea.Sequence(SwitchModel(MODEL_SCOPE), ChooseScopeModelProp(this.filteredOptions[this.cursor]))
 			}
 		default:
 			key := msg.String()
