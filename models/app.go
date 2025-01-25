@@ -1,58 +1,56 @@
 package models
 
-import (
-	tea "github.com/charmbracelet/bubbletea"
-)
-
-type ModelIndex int
-
-const (
-	MODEL_SEARCH ModelIndex = iota
-	MODEL_SCOPE
-)
+import tea "github.com/charmbracelet/bubbletea"
 
 type AppModel struct {
-	tea.Model
-	IsExiting         bool
-	models            []tea.Model
-	CurrentModelIndex ModelIndex
+	isExiting bool
+	models    [2]tea.Model
+	cursor    AppSubmodelId
 }
 
-func NewAppModel() AppModel {
-	return AppModel{
-		IsExiting: false,
-		models: []tea.Model{
-			NewSearchModel(),
-			NewScopeModel(),
-		},
-		CurrentModelIndex: MODEL_SEARCH,
-	}
-}
+type AppSubmodelId int
 
-func (this AppModel) Init() tea.Cmd {
+const (
+	MODEL_ID_SEARCH AppSubmodelId = iota
+	MODEL_ID_SCOPE
+)
+
+func (this *AppModel) Init() tea.Cmd {
+	this.models[MODEL_ID_SEARCH] = NewSearchModel()
+	this.models[MODEL_ID_SCOPE] = NewScopeModel()
+
 	return nil
 }
 
-func (this AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (this *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case ModelIndex:
-		this.CurrentModelIndex = msg
-	case ExitCode:
-		this.IsExiting = true
-		return this, tea.Quit
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyCtrlC:
+			this.isExiting = true
+			return this, tea.Quit
+		}
+	case AppSubmodelId:
+		this.cursor = msg
+		return this, this.models[this.cursor].Init()
 	}
 
-	currentModel := this.models[this.CurrentModelIndex]
-	newModel, cmd := currentModel.Update(msg)
-	this.models[this.CurrentModelIndex] = newModel
-
+	_, cmd := this.models[this.cursor].Update(msg)
 	return this, cmd
 }
 
-func (this AppModel) View() string {
-	if this.IsExiting {
+func (this *AppModel) View() string {
+	if this.isExiting {
 		return ""
 	}
 
-	return this.models[this.CurrentModelIndex].View()
+	return this.models[this.cursor].View()
+}
+
+// Commands
+
+func SwitchSubmodel(submodelId AppSubmodelId) tea.Cmd {
+	return func() tea.Msg {
+		return submodelId
+	}
 }
