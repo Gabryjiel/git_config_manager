@@ -116,6 +116,16 @@ func (this *TextInputModel) GetValue() string {
 	return this.value
 }
 
+func (this *TextInputModel) SetValue(newValue string) {
+	this.value = newValue
+	this.cursorPosition = len(newValue)
+}
+
+func (this *TextInputModel) Clear() {
+	this.value = ""
+	this.cursorPosition = 0
+}
+
 // Commands
 
 type MsgInputChanged struct{}
