@@ -42,7 +42,10 @@ func (this *SearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case tea.KeyEnter:
 			if len(this.filteredOptions) > 0 {
-				return this, SwitchSubmodel(MODEL_ID_SCOPE)
+				return this, tea.Sequence(
+					SwitchSubmodel(MODEL_ID_SCOPE),
+					CmdScopeSelectProp(this.filteredOptions[this.cursor]),
+				)
 			}
 			return this, nil
 		}
