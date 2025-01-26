@@ -29,7 +29,7 @@ func (this *TextInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			this.removeLastWord()
 			return this, CmdInputChanged
 		case tea.KeyBackspace:
-			this.removeLastCharacter()
+			this.removePreviousCharacter()
 			return this, CmdInputChanged
 		case tea.KeyLeft:
 			this.moveCursor(-1)
@@ -61,11 +61,16 @@ func (this *TextInputModel) View() string {
 
 // Methods
 
-func (this *TextInputModel) removeLastCharacter() {
-	if len(this.value) > 0 {
-		this.value = this.value[:len(this.value)-1]
-		this.moveCursor(-1)
+func (this *TextInputModel) removePreviousCharacter() {
+	if len(this.value) < 1 || this.cursorPosition == 0 {
+		return
 	}
+
+	before := this.value[:this.cursorPosition-1]
+	after := this.value[this.cursorPosition:]
+	this.value = before + after
+	this.moveCursor(-1)
+
 }
 
 func (this *TextInputModel) removeLastWord() {
