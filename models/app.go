@@ -2,6 +2,18 @@ package models
 
 import tea "github.com/charmbracelet/bubbletea"
 
+func NewAppModel() *AppModel {
+	model := AppModel{
+		isExiting: false,
+		cursor:    MODEL_ID_SEARCH,
+	}
+
+	model.models[MODEL_ID_SEARCH] = NewSearchModel()
+	model.models[MODEL_ID_SCOPE] = NewScopeModel()
+
+	return &model
+}
+
 type AppModel struct {
 	isExiting bool
 	models    [2]tea.Model
@@ -16,9 +28,6 @@ const (
 )
 
 func (this *AppModel) Init() tea.Cmd {
-	this.models[MODEL_ID_SEARCH] = NewSearchModel()
-	this.models[MODEL_ID_SCOPE] = NewScopeModel()
-
 	return nil
 }
 

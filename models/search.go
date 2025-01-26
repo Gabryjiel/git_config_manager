@@ -1,98 +1,64 @@
 package models
 
 import (
-	"slices"
-
 	"github.com/Gabryjiel/git_config_manager/git"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-func NewSearchModel() SearchModel {
-	systemOptions := git.GetGitConfigByLevel("system")
-	globalOptions := git.GetGitConfigByLevel("global")
-	localOptions := git.GetGitConfigByLevel("local")
+func NewSearchModel() *SearchModel {
+	configProps := git.GetConfigProps()
 
-	options := git.CreateConfigMap(systemOptions, globalOptions, localOptions)
-
-	slices.SortFunc(options, func(a, b git.GitConfigProp) int {
-		aName := a.GetName()
-		bName := b.GetName()
-
-		if aName > bName {
-			return 1
-		} else if aName < bName {
-			return -1
-		} else {
-			return 0
-		}
-	})
-
-	return SearchModel{
+	return &SearchModel{
 		cursor:          0,
-		allOptions:      options,
-		filteredOptions: options,
+		allOptions:      configProps,
+		filteredOptions: configProps,
+		input:           NewTextField(),
 	}
 }
 
 type SearchModel struct {
-	tea.Model
-	input           TextField
+	input           TextInputModel
 	allOptions      []git.GitConfigProp
 	filteredOptions []git.GitConfigProp
 	cursor          MenuCursor
 }
 
-func (this SearchModel) Init() tea.Cmd {
+func (this *SearchModel) Init() tea.Cmd {
 	return nil
 }
 
-func (this SearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (this *SearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
-		case tea.KeyCtrlC:
-			return this, ExitProgram()
-		case tea.KeyCtrlW:
-			this.input.removeLastWord()
-			this.filteredOptions = git.FilterGitConfigProps(this.allOptions, this.input.Value)
-		case tea.KeyCtrlN:
-			fallthrough
 		case tea.KeyDown:
 			this.cursor.moveDown(len(this.filteredOptions))
+			return this, nil
+
 		case tea.KeyUp:
-			fallthrough
-		case tea.KeyCtrlP:
 			this.cursor.moveUp()
-		case tea.KeyBackspace:
-			this.input.removeLastCharacter()
-			this.filteredOptions = git.FilterGitConfigProps(this.allOptions, this.input.Value)
+			return this, nil
+
 		case tea.KeyEnter:
 			if len(this.filteredOptions) > 0 {
-				return this, tea.Sequence(SwitchModel(MODEL_SCOPE), ChooseScopeModelProp(this.filteredOptions[this.cursor]))
+				return this, SwitchSubmodel(MODEL_ID_SCOPE)
 			}
-		default:
-			key := msg.String()
-
-			if len(key) == 1 {
-				this.input.Value += key
-				this.filteredOptions = git.FilterGitConfigProps(this.allOptions, this.input.Value)
-
-				if int(this.cursor) > len(this.filteredOptions)-1 {
-					this.cursor = MenuCursor(len(this.filteredOptions) - 1)
-				}
-			}
+			return this, nil
 		}
+	case MsgInputChanged:
+		this.filteredOptions = git.FilterGitConfigProps(this.allOptions, this.input.GetValue())
+		return this, nil
 	}
 
-	return this, nil
+	_, cmd := this.input.Update(msg)
+	return this, cmd
 }
 
-func (this SearchModel) View() string {
+func (this *SearchModel) View() string {
 	output := renderHeader()
 	output += arrowCinStyle.Render(" Search: ")
-	output += this.input.Value
-	output += lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(15)).Render("█")
+	output += this.input.View()
 	output += "\n\n"
 
 	for index, option := range this.filteredOptions {
@@ -101,6 +67,8 @@ func (this SearchModel) View() string {
 
 	return output
 }
+
+// Helpers
 
 func RenderSearchItem(item git.GitConfigProp, itemIndex, cursorIndex int) string {
 	defaultStyle := lipgloss.NewStyle()
@@ -111,16 +79,30 @@ func RenderSearchItem(item git.GitConfigProp, itemIndex, cursorIndex int) string
 
 	name := defaultStyle.Width(40).Align(lipgloss.Left).PaddingLeft(1).Render(item.Section + "." + item.Key)
 
-	value := ""
-	if len(item.Values.Local) > 0 {
-		value = localValueStyle.Background(defaultStyle.GetBackground()).PaddingLeft(1).Render(item.Values.Local)
-	} else if len(item.Values.Global) > 0 {
-		value = globalValueStyle.Background(defaultStyle.GetBackground()).PaddingLeft(1).Render(item.Values.Global)
-	} else if len(item.Values.System) > 0 {
-		value = systemValueStyle.Background(defaultStyle.GetBackground()).PaddingLeft(1).Render(item.Values.System)
-	}
-
+	value := getItemValue(item, defaultStyle)
 	value = defaultStyle.Align(lipgloss.Right).Width(40).PaddingRight(1).Render(value)
 
 	return name + value + "\n"
 }
+
+func getItemValue(item git.GitConfigProp, defaultStyle lipgloss.Style) string {
+	bgColor := defaultStyle.GetBackground()
+	value, ok := item.Values["local"]
+	if ok {
+		return localValueStyle.Background(bgColor).PaddingLeft(1).Render(value)
+	}
+
+	value, ok = item.Values["global"]
+	if ok {
+		return globalValueStyle.Background(bgColor).PaddingLeft(1).Render(value)
+	}
+
+	value, ok = item.Values["system"]
+	if ok {
+		return systemValueStyle.Background(bgColor).PaddingLeft(1).Render(value)
+	}
+
+	return defaultStyle.PaddingLeft(1).Render("")
+}
+
+// Commands

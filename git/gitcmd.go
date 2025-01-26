@@ -2,6 +2,8 @@ package git
 
 import (
 	"log"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/Gabryjiel/git_config_manager/utils"
@@ -14,42 +16,72 @@ const (
 	SOURCE__SYSTEM = "system"
 )
 
+type ValueScope int
+
+const (
+	SCOPE_LOCAL ValueScope = iota
+	SCOPE_GLOBAL
+	SCOPE_SYSTEM
+)
+
 type GitConfigEntry struct {
 	Name  string
 	Value string
 }
 
-func GetGitConfigByLevel(source string) []GitConfigProp {
-	cmdOutputStr, err := utils.ExecuteCommand("git", "config", "--list", "--"+source)
+func GetConfigProps() []GitConfigProp {
+	contents, err := utils.ExecuteCommand("git", "config", "list", "--show-scope")
 
 	if err != nil {
-		log.Println("Failed", err)
-		return nil
+		log.Fatalln("Could not find config list")
 	}
 
-	entries := strings.Split(cmdOutputStr, "\n")
-	result := make([]GitConfigProp, len(entries))
+	configMap := make(map[string]GitConfigProp)
 
-	for i, entryStr := range entries {
-		split := strings.SplitN(entryStr, "=", 2)
-		location := strings.SplitN(split[0], ".", 2)
+	lines := strings.Split(contents, "\n")
+	for _, line := range lines {
+		split := strings.Split(line, "\t")
+		scope := split[0]
+		entry := split[1]
 
-		result[i].Type = GIT_CONFIG_PROP__TYPE_STRING
-		result[i].Section = location[0]
-		result[i].Key = location[1]
-		result[i].Values = GitConfigEntryValues{}
+		splitEntry := strings.SplitN(entry, "=", 2)
+		sectionKey := splitEntry[0]
+		value := splitEntry[1]
 
-		switch source {
-		case SOURCE__GLOBAL:
-			result[i].Values.Global = split[1]
-		case SOURCE__SYSTEM:
-			result[i].Values.System = split[1]
-		case SOURCE__LOCAL:
-			result[i].Values.Local = split[1]
+		splitSectionKey := strings.SplitN(sectionKey, ".", 2)
+		section := splitSectionKey[0]
+		key := splitSectionKey[1]
+
+		_, alreadyExists := configMap[sectionKey]
+		if alreadyExists {
+			configMap[sectionKey].Values[scope] = value
+		} else {
+			valuesMap := make(map[string]string)
+			valuesMap[scope] = value
+
+			configMap[sectionKey] = GitConfigProp{
+				Section: section,
+				Key:     key,
+				Type:    GIT_CONFIG_PROP__TYPE_STRING,
+				Values:  valuesMap,
+			}
 		}
 	}
 
-	return result
+	configSlice := slices.Collect(maps.Values(configMap))
+	slices.SortFunc(configSlice, func(a, b GitConfigProp) int {
+		aName := a.GetName()
+		bName := b.GetName()
+
+		if aName > bName {
+			return 1
+		} else if aName < bName {
+			return -1
+		} else {
+			return 0
+		}
+	})
+	return configSlice
 }
 
 func GetGitVersion() string {
@@ -59,4 +91,20 @@ func GetGitVersion() string {
 	}
 
 	return result
+}
+
+func SetConfigProp(scope ValueScope, key, value string) bool {
+	cmdScope := "local"
+
+	switch scope {
+	case SCOPE_LOCAL:
+		cmdScope = SOURCE__LOCAL
+	case SCOPE_GLOBAL:
+		cmdScope = SOURCE__GLOBAL
+	case SCOPE_SYSTEM:
+		cmdScope = SOURCE__SYSTEM
+	}
+
+	_, err := utils.ExecuteCommand("git", "config", "--add", "--"+cmdScope, key, value)
+	return err != nil
 }

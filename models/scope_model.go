@@ -6,20 +6,12 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-type ValueScope int
-
-const (
-	SCOPE_LOCAL ValueScope = iota
-	SCOPE_GLOBAL
-	SCOPE_SYSTEM
-)
-
 type ScopeModel struct {
 	tea.Model
 	prop      git.GitConfigProp
 	textField TextField
-	values    git.GitConfigEntryValues
 	cursor    MenuCursor
+	isEditing bool
 }
 
 func NewScopeModel() ScopeModel {
@@ -37,11 +29,17 @@ func (this ScopeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC:
-			return this, ExitProgram()
+			return this, tea.Quit
 		case tea.KeyEsc:
-			return this, SwitchModel(MODEL_SEARCH)
+			if this.isEditing {
+				this.isEditing = false
+			} else {
+				return NewSearchModel(), nil
+			}
 		case tea.KeyRunes:
-			this.textField.Value += msg.String()
+			if this.isEditing {
+				this.textField.Value += msg.String()
+			}
 		case tea.KeyBackspace:
 			this.textField.removeLastCharacter()
 		case tea.KeyCtrlW:
@@ -54,6 +52,11 @@ func (this ScopeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			fallthrough
 		case tea.KeyCtrlP:
 			this.cursor.moveUp()
+		case tea.KeyEnter:
+			this.isEditing = !this.isEditing
+
+			if !this.isEditing {
+			}
 		}
 	}
 	return this, nil
@@ -65,17 +68,25 @@ func (this ScopeModel) View() string {
 	output += renderHeader()
 	output += arrowCinStyle.Render(" Value: ")
 	output += this.textField.Value
-	output += lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(15)).Render("█")
+
+	if this.isEditing {
+		output += lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(15)).Render("█")
+	}
+
 	output += "\n\n"
 
-	output += renderPropValue(SCOPE_LOCAL, this.prop.Values.Local, this.cursor)
-	output += renderPropValue(SCOPE_GLOBAL, this.prop.Values.Global, this.cursor)
-	output += renderPropValue(SCOPE_SYSTEM, this.prop.Values.System, this.cursor)
+	localValue, _ := this.prop.Values["local"]
+	globalValue, _ := this.prop.Values["global"]
+	systemValue, _ := this.prop.Values["system"]
+
+	output += renderPropValue(git.SCOPE_LOCAL, localValue, this.cursor)
+	output += renderPropValue(git.SCOPE_GLOBAL, globalValue, this.cursor)
+	output += renderPropValue(git.SCOPE_SYSTEM, systemValue, this.cursor)
 
 	return output
 }
 
-func renderPropValue(scope ValueScope, value string, cursor MenuCursor) string {
+func renderPropValue(scope git.ValueScope, value string, cursor MenuCursor) string {
 	defaultStyle := lipgloss.NewStyle()
 	emptyStyle := lipgloss.NewStyle().Width(40)
 	valueStyle := lipgloss.NewStyle().Width(40)
@@ -83,13 +94,13 @@ func renderPropValue(scope ValueScope, value string, cursor MenuCursor) string {
 	label := "Default label"
 
 	switch scope {
-	case SCOPE_LOCAL:
+	case git.SCOPE_LOCAL:
 		label = "Local"
 		valueStyle = emptyStyle.Foreground(localValueStyle.GetForeground())
-	case SCOPE_GLOBAL:
+	case git.SCOPE_GLOBAL:
 		label = "Global"
 		valueStyle = emptyStyle.Foreground(globalValueStyle.GetForeground())
-	case SCOPE_SYSTEM:
+	case git.SCOPE_SYSTEM:
 		label = "System"
 		valueStyle = emptyStyle.Foreground(systemValueStyle.GetForeground())
 	}
