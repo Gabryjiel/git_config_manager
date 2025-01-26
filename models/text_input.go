@@ -1,8 +1,6 @@
 package models
 
 import (
-	"strings"
-
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -26,7 +24,7 @@ func (this *TextInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlW:
-			this.removeLastWord()
+			this.removePreviousWord()
 			return this, CmdInputChanged
 		case tea.KeyBackspace:
 			this.removePreviousCharacter()
@@ -73,16 +71,25 @@ func (this *TextInputModel) removePreviousCharacter() {
 
 }
 
-func (this *TextInputModel) removeLastWord() {
-	lastIndex := strings.LastIndex(this.value, " ")
-
-	if lastIndex == -1 {
-		this.value = ""
-		this.cursorPosition = 0
-	} else {
-		this.value = this.value[0:lastIndex]
-		this.cursorPosition = lastIndex
+func (this *TextInputModel) removePreviousWord() {
+	if len(this.value) < 1 || this.cursorPosition == 0 {
+		return
 	}
+
+	spaceIndex := this.cursorPosition - 1
+
+	for spaceIndex > 0 {
+		if this.value[spaceIndex] == ' ' {
+			break
+		}
+
+		spaceIndex--
+	}
+
+	before := this.value[:spaceIndex]
+	after := this.value[this.cursorPosition:]
+	this.value = before + after
+	this.cursorPosition -= this.cursorPosition - spaceIndex
 }
 
 func (this *TextInputModel) moveCursor(length int) {
