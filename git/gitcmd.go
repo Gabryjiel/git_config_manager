@@ -43,7 +43,6 @@ func GetConfigProps() []GitConfigProp {
 		splitted := strings.SplitN(label, ".", 2)
 
 		if len(splitted) != 2 {
-			println(splitted)
 			continue
 		}
 
