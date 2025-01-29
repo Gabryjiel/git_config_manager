@@ -28,6 +28,7 @@ type MainModel struct {
 	cursor        int
 	message       string
 	listStart     int
+	onlyWithValue bool
 }
 
 func (this *MainModel) Init() tea.Cmd {
@@ -63,18 +64,22 @@ func (this *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return this, nil
 
 	case MsgInputChanged:
-		this.filteredProps = git.FilterGitConfigProps(this.props, this.searchInput.GetValue())
+		this.filteredProps = git.FilterGitConfigProps(this.props, this.searchInput.GetValue(), this.onlyWithValue)
 		return this, nil
 
 	case tea.KeyMsg:
 		switch msg.Type {
+
+		case tea.KeyTab:
+			this.onlyWithValue = !this.onlyWithValue
+			return this, CmdInputChanged
 
 		case tea.KeyCtrlC:
 			this.isExiting = true
 			return this, tea.Quit
 
 		case tea.KeyDown:
-			if this.cursor < len(this.props)-1 {
+			if this.cursor < len(this.filteredProps)-1 {
 				this.cursor++
 			}
 			if this.cursor >= this.listStart+10 {
@@ -182,6 +187,10 @@ func (this *MainModel) View() string {
 		output += this.searchInput.View() + "\n"
 	}
 
+	centerStyle := lipgloss.NewStyle().Width(80).AlignHorizontal(lipgloss.Center)
+
+	output += centerStyle.Render(renderGap(80)) + "\n"
+
 	for index, prop := range this.filteredProps {
 		if index < this.listStart || index > this.listStart+10 {
 			continue
@@ -190,6 +199,7 @@ func (this *MainModel) View() string {
 		output += renderProp(prop.GetName(), getValueFromScope(prop, this.scope), getColorFromScope(this.scope), index == this.cursor)
 	}
 
+	output += centerStyle.Render(renderGap(80)) + "\n"
 	output += "Last message: " + this.message
 
 	return output
@@ -199,6 +209,16 @@ func (this *MainModel) View() string {
 
 func CreateNewMainModel() *MainModel {
 	return &MainModel{}
+}
+
+func renderGap(length int) string {
+	result := ""
+
+	for i := 0; i < length; i++ {
+		result += "-"
+	}
+
+	return result
 }
 
 func renderEasyHeader(scope GitScope) string {
@@ -222,8 +242,8 @@ func renderProp(label, value string, valueColor lipgloss.ANSIColor, isSelected b
 		style = style.Background(lipgloss.ANSIColor(8))
 	}
 
-	propLabel := style.PaddingRight(1).Render(label)
-	propValue := style.Width(80 - len(label)).AlignHorizontal(lipgloss.Right).Foreground(valueColor).Render(value)
+	propLabel := style.PaddingLeft(1).Render(label)
+	propValue := style.Width(80 - len(label) - 1).AlignHorizontal(lipgloss.Right).PaddingRight(1).Foreground(valueColor).Render(value)
 
 	return propLabel + propValue + "\n"
 }

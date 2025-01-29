@@ -50,7 +50,7 @@ func (this *SearchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return this, nil
 		}
 	case MsgInputChanged:
-		this.filteredOptions = git.FilterGitConfigProps(this.allOptions, this.input.GetValue())
+		this.filteredOptions = git.FilterGitConfigProps(this.allOptions, this.input.GetValue(), false)
 		return this, nil
 	}
 
