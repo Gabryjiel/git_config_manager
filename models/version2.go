@@ -27,6 +27,7 @@ type MainModel struct {
 	scope         GitScope
 	cursor        int
 	message       string
+	listStart     int
 }
 
 func (this *MainModel) Init() tea.Cmd {
@@ -73,13 +74,41 @@ func (this *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return this, tea.Quit
 
 		case tea.KeyDown:
-			if this.cursor <= len(this.props) {
+			if this.cursor < len(this.props)-1 {
 				this.cursor++
+			}
+			if this.cursor >= this.listStart+10 {
+				this.listStart = this.cursor - 10
 			}
 
 		case tea.KeyUp:
 			if this.cursor > 0 {
 				this.cursor--
+			}
+			if this.cursor < this.listStart {
+				this.listStart = this.cursor
+			}
+
+		case tea.KeyPgDown:
+			this.cursor += 10
+			this.listStart += 10
+
+			if this.cursor > len(this.props) {
+				this.cursor = len(this.props) - 9
+			}
+			if this.listStart > len(this.props) {
+				this.listStart = len(this.props) - 9
+			}
+
+		case tea.KeyPgUp:
+			this.cursor -= 10
+			this.listStart -= 10
+
+			if this.cursor < 0 {
+				this.cursor = 0
+			}
+			if this.listStart < 0 {
+				this.listStart = 0
 			}
 
 		case tea.KeyCtrlRight:
@@ -154,6 +183,10 @@ func (this *MainModel) View() string {
 	}
 
 	for index, prop := range this.filteredProps {
+		if index < this.listStart || index > this.listStart+10 {
+			continue
+		}
+
 		output += renderProp(prop.GetName(), getValueFromScope(prop, this.scope), getColorFromScope(this.scope), index == this.cursor)
 	}
 

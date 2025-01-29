@@ -38,6 +38,26 @@ func GetConfigProps() []GitConfigProp {
 
 	configMap := make(map[string]GitConfigProp)
 
+	configLabels := GetConfigLabels()
+	for _, label := range configLabels {
+		splitted := strings.SplitN(label, ".", 2)
+
+		if len(splitted) != 2 {
+			println(splitted)
+			continue
+		}
+
+		section := splitted[0]
+		key := splitted[1]
+
+		configMap[label] = GitConfigProp{
+			Section: section,
+			Key:     key,
+			Values:  make(map[string]string),
+			Type:    0,
+		}
+	}
+
 	lines := strings.Split(contents, "\n")
 	for _, line := range lines {
 		split := strings.Split(line, "\t")
