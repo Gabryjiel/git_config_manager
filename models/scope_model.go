@@ -47,7 +47,7 @@ func (this *ScopeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter:
 			if this.isEditing {
 				this.isEditing = false
-				return this, CmdGitConfigSet(this.prop.GetName(), this.input.GetValue())
+				return this, CmdGitConfigSet(this.prop.GetName(), this.input.GetValue(), 1)
 			} else {
 				this.isEditing = true
 				value, ok := this.prop.Values[this.getScopeFromCursor()]
@@ -146,22 +146,32 @@ func CmdScopeSelectProp(prop git.GitConfigProp) tea.Cmd {
 type GitConfigSetResult struct {
 	result  bool
 	message string
+	name    string
+	value   string
+	scope   string
 }
 
-func CmdGitConfigSet(name string, value string) tea.Cmd {
+func CmdGitConfigSet(name string, value string, gitScope GitScope) tea.Cmd {
 	return func() tea.Msg {
-		content, err := utils.ExecuteCommand("git", "config", "set", name, value)
+		scope := getScopeFromGitScope(gitScope)
+		content, err := utils.ExecuteCommand("git", "config", "set", name, value, "--"+scope)
 
 		if err != nil {
 			return GitConfigSetResult{
 				message: err.Error(),
 				result:  false,
+				name:    name,
+				value:   value,
+				scope:   scope,
 			}
 		}
 
 		return GitConfigSetResult{
 			result:  true,
 			message: content,
+			name:    name,
+			value:   value,
+			scope:   scope,
 		}
 	}
 }

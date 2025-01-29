@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	program := tea.NewProgram(models.NewAppModel())
+	program := tea.NewProgram(models.CreateNewMainModel())
 	if _, err := program.Run(); err != nil {
 		fmt.Println("Error:", err)
 		os.Exit(1)

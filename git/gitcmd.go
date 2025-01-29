@@ -108,3 +108,13 @@ func SetConfigProp(scope ValueScope, key, value string) bool {
 	_, err := utils.ExecuteCommand("git", "config", "--add", "--"+cmdScope, key, value)
 	return err != nil
 }
+
+func GetConfigLabels() []string {
+	labels, err := utils.ExecuteCommand("git", "help", "-c")
+
+	if err != nil {
+		return nil
+	}
+
+	return strings.Split(labels, "\n")
+}
