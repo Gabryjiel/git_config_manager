@@ -8,9 +8,6 @@ func NewAppModel() *AppModel {
 		cursor:    MODEL_ID_SEARCH,
 	}
 
-	model.models[MODEL_ID_SEARCH] = NewSearchModel()
-	model.models[MODEL_ID_SCOPE] = NewScopeModel()
-
 	return &model
 }
 
