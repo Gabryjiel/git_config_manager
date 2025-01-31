@@ -85,6 +85,8 @@ func (this *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			this.isExiting = true
 			return this, tea.Quit
 
+		case tea.KeyCtrlN:
+			fallthrough
 		case tea.KeyDown:
 			if this.cursor < len(this.filteredProps)-1 {
 				this.cursor++
@@ -93,6 +95,8 @@ func (this *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				this.listStart = this.cursor - 10
 			}
 
+		case tea.KeyCtrlP:
+			fallthrough
 		case tea.KeyUp:
 			if this.cursor > 0 {
 				this.cursor--
