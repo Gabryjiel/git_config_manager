@@ -65,6 +65,13 @@ func (this *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case MsgInputChanged:
 		this.filteredProps = git.FilterGitConfigProps(this.props, this.searchInput.GetValue(), this.onlyWithValue)
+
+		if len(this.filteredProps) == 0 {
+			this.cursor = 0
+		} else if this.cursor >= len(this.filteredProps) {
+			this.cursor = len(this.filteredProps) - 1
+		}
+
 		return this, nil
 
 	case tea.KeyMsg:
