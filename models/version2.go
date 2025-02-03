@@ -5,6 +5,7 @@ import (
 
 	"github.com/Gabryjiel/git_config_manager/git"
 	"github.com/Gabryjiel/git_config_manager/utils"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -20,8 +21,8 @@ const (
 type MainModel struct {
 	isExiting     bool
 	isEditing     bool
-	searchInput   TextInputModel
-	valueInput    TextInputModel
+	searchInput   textinput.Model
+	valueInput    textinput.Model
 	props         []git.GitConfigProp
 	filteredProps []git.GitConfigProp
 	scope         GitScope
@@ -50,7 +51,8 @@ func (this *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		this.props[index].Values[msg.scope] = msg.value
 		this.filteredProps[this.cursor].Values[msg.scope] = msg.value
-		this.valueInput.Clear()
+
+		this.valueInput.Reset()
 
 		return this, Cmd_DisplayMessage("Changed value of " + msg.name + " to " + msg.value)
 
@@ -64,7 +66,7 @@ func (this *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return this, nil
 
 	case Msg_InputChanged:
-		this.filteredProps = git.FilterGitConfigProps(this.props, this.searchInput.GetValue(), this.onlyWithValue)
+		this.filteredProps = git.FilterGitConfigProps(this.props, this.searchInput.Value(), this.onlyWithValue)
 
 		if len(this.filteredProps) == 0 {
 			this.cursor = 0
@@ -153,7 +155,10 @@ func (this *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter:
 			if this.isEditing {
 				name := this.filteredProps[this.cursor].GetName()
-				value := this.valueInput.GetValue()
+				value := this.valueInput.Value()
+
+				this.searchInput.Focus()
+				this.valueInput.Blur()
 
 				return this, Cmd_GitConfigSet(name, value, this.scope)
 			}
@@ -166,16 +171,27 @@ func (this *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				this.valueInput.SetValue("")
 			}
 
+			this.searchInput.Blur()
+			this.valueInput.Focus()
+
 			return this, nil
 		}
 
 	}
 
 	if this.isEditing {
-		_, cmd := this.valueInput.Update(msg)
+		model, cmd := this.valueInput.Update(msg)
+		this.valueInput = model
 		return this, cmd
 	} else {
-		_, cmd := this.searchInput.Update(msg)
+		prevValue := this.searchInput.Value()
+		model, cmd := this.searchInput.Update(msg)
+		this.searchInput = model
+
+		if prevValue != this.searchInput.Value() {
+			return this, tea.Batch(Cmd_InputChanged, cmd)
+		}
+
 		return this, cmd
 	}
 }
@@ -190,11 +206,9 @@ func (this *MainModel) View() string {
 	output += renderEasyHeader(this.scope) + "\n"
 
 	if this.isEditing {
-		output += "Value: "
 		output += this.valueInput.View() + "\n"
 
 	} else {
-		output += "Search: "
 		output += this.searchInput.View() + "\n"
 	}
 
@@ -219,7 +233,20 @@ func (this *MainModel) View() string {
 // Helpers
 
 func CreateNewMainModel() *MainModel {
-	return &MainModel{}
+	searchInput := textinput.New()
+	searchInput.Width = 80
+	searchInput.Prompt = "Search: "
+
+	valueInput := textinput.New()
+	valueInput.Width = 80
+	valueInput.Prompt = "Value: "
+
+	searchInput.Focus()
+
+	return &MainModel{
+		searchInput: searchInput,
+		valueInput:  valueInput,
+	}
 }
 
 func renderGap(length int) string {
