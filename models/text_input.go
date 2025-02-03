@@ -25,10 +25,10 @@ func (this *TextInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyCtrlW:
 			this.removePreviousWord()
-			return this, CmdInputChanged
+			return this, Cmd_InputChanged
 		case tea.KeyBackspace:
 			this.removePreviousCharacter()
-			return this, CmdInputChanged
+			return this, Cmd_InputChanged
 		case tea.KeyLeft:
 			this.moveCursor(-1)
 		case tea.KeyRight:
@@ -39,7 +39,7 @@ func (this *TextInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			this.insertOnCursor(msg.String())
-			return this, CmdInputChanged
+			return this, Cmd_InputChanged
 		}
 	}
 
@@ -128,8 +128,8 @@ func (this *TextInputModel) Clear() {
 
 // Commands
 
-type MsgInputChanged struct{}
+type Msg_InputChanged struct{}
 
-func CmdInputChanged() tea.Msg {
-	return MsgInputChanged{}
+func Cmd_InputChanged() tea.Msg {
+	return Msg_InputChanged{}
 }

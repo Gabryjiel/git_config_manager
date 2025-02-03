@@ -63,7 +63,7 @@ func (this *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		this.filteredProps = msg
 		return this, nil
 
-	case MsgInputChanged:
+	case Msg_InputChanged:
 		this.filteredProps = git.FilterGitConfigProps(this.props, this.searchInput.GetValue(), this.onlyWithValue)
 
 		if len(this.filteredProps) == 0 {
@@ -79,7 +79,7 @@ func (this *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case tea.KeyTab:
 			this.onlyWithValue = !this.onlyWithValue
-			return this, CmdInputChanged
+			return this, Cmd_InputChanged
 
 		case tea.KeyCtrlC:
 			this.isExiting = true
