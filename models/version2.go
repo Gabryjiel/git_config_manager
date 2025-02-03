@@ -5,6 +5,8 @@ import (
 
 	"github.com/Gabryjiel/git_config_manager/git"
 	"github.com/Gabryjiel/git_config_manager/utils"
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -30,6 +32,7 @@ type MainModel struct {
 	message       string
 	listStart     int
 	onlyWithValue bool
+	help          help.Model
 }
 
 func (this *MainModel) Init() tea.Cmd {
@@ -77,19 +80,17 @@ func (this *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return this, nil
 
 	case tea.KeyMsg:
-		switch msg.Type {
+		switch {
 
-		case tea.KeyTab:
+		case key.Matches(msg, SearchKeymap.FilterOnlyWithValue):
 			this.onlyWithValue = !this.onlyWithValue
 			return this, Cmd_InputChanged
 
-		case tea.KeyCtrlC:
+		case key.Matches(msg, SearchKeymap.Quit):
 			this.isExiting = true
 			return this, tea.Quit
 
-		case tea.KeyCtrlN:
-			fallthrough
-		case tea.KeyDown:
+		case key.Matches(msg, SearchKeymap.Down):
 			if this.cursor < len(this.filteredProps)-1 {
 				this.cursor++
 			}
@@ -97,9 +98,7 @@ func (this *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				this.listStart = this.cursor - 10
 			}
 
-		case tea.KeyCtrlP:
-			fallthrough
-		case tea.KeyUp:
+		case key.Matches(msg, SearchKeymap.Up):
 			if this.cursor > 0 {
 				this.cursor--
 			}
@@ -107,7 +106,7 @@ func (this *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				this.listStart = this.cursor
 			}
 
-		case tea.KeyPgDown:
+		case key.Matches(msg, SearchKeymap.PageDown):
 			this.cursor += 10
 			this.listStart += 10
 
@@ -118,7 +117,7 @@ func (this *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				this.listStart = len(this.props) - 9
 			}
 
-		case tea.KeyPgUp:
+		case key.Matches(msg, SearchKeymap.PageUp):
 			this.cursor -= 10
 			this.listStart -= 10
 
@@ -129,30 +128,29 @@ func (this *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				this.listStart = 0
 			}
 
-		case tea.KeyCtrlRight:
+		case key.Matches(msg, SearchKeymap.NextScope):
 			if this.scope == 2 {
 				this.scope = 0
 			} else {
 				this.scope++
 			}
 
-		case tea.KeyCtrlLeft:
+		case key.Matches(msg, SearchKeymap.PreviousScope):
 			if this.scope == 0 {
 				this.scope = 2
 			} else {
 				this.scope--
 			}
 
-		case tea.KeyEsc:
-			if this.isEditing {
-				this.isEditing = false
-				return this, nil
-			} else {
-				this.isExiting = true
-				return this, tea.Quit
-			}
+		case key.Matches(msg, SearchKeymap.Cancel):
+			this.isEditing = false
+			return this, nil
 
-		case tea.KeyEnter:
+		case key.Matches(msg, SearchKeymap.Help):
+			this.help.ShowAll = !this.help.ShowAll
+			return this, nil
+
+		case key.Matches(msg, SearchKeymap.Confirm):
 			if this.isEditing {
 				name := this.filteredProps[this.cursor].GetName()
 				value := this.valueInput.Value()
@@ -225,7 +223,9 @@ func (this *MainModel) View() string {
 	}
 
 	output += centerStyle.Render(renderGap(80)) + "\n"
-	output += "Last message: " + this.message
+	output += "Last message: " + this.message + "\n"
+
+	output += lipgloss.NewStyle().Width(80).AlignHorizontal(lipgloss.Center).Render(this.help.View(SearchKeymap))
 
 	return output
 }
@@ -241,11 +241,15 @@ func CreateNewMainModel() *MainModel {
 	valueInput.Width = 80
 	valueInput.Prompt = "Value: "
 
+	help := help.New()
+	help.Width = 80
+
 	searchInput.Focus()
 
 	return &MainModel{
 		searchInput: searchInput,
 		valueInput:  valueInput,
+		help:        help,
 	}
 }
 
