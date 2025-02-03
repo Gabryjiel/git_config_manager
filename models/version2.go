@@ -13,6 +13,7 @@ import (
 )
 
 type GitScope int
+type AppMode uint8
 
 const (
 	GIT_SCOPE_LOCAL GitScope = iota
@@ -20,9 +21,14 @@ const (
 	GIT_SCOPE_SYSTEM
 )
 
+const (
+	APP_MODE_SEARCH AppMode = iota
+	APP_MODE_VALUE
+	APP_MODE_LOGS
+)
+
 type MainModel struct {
 	isExiting     bool
-	isEditing     bool
 	searchInput   textinput.Model
 	valueInput    textinput.Model
 	props         []git.GitConfigProp
@@ -33,10 +39,12 @@ type MainModel struct {
 	listStart     int
 	onlyWithValue bool
 	help          help.Model
+	mode          AppMode
+	logsModel     logsModel
 }
 
 func (this *MainModel) Init() tea.Cmd {
-	return Cmd_GetGitConfigEntries
+	return Cmd_GetGitConfigEntries()
 }
 
 func (this *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -47,7 +55,7 @@ func (this *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return this, Cmd_DisplayMessage(msg.message)
 		}
 
-		this.isEditing = false
+		this.mode = APP_MODE_SEARCH
 		index := slices.IndexFunc(this.props, func(prop git.GitConfigProp) bool {
 			return prop.GetName() == msg.name
 		})
@@ -63,10 +71,17 @@ func (this *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		this.message = msg.message
 		return this, nil
 
-	case []git.GitConfigProp:
-		this.props = msg
-		this.filteredProps = msg
+	case Msg_GetGitConfigProps:
+		this.props = msg.data
+		this.filteredProps = msg.data
 		return this, nil
+
+	case Msg_Quit:
+		this.isExiting = true
+		return this, tea.Quit
+
+	case Msg_ChangeMode:
+		this.mode = msg.mode
 
 	case Msg_InputChanged:
 		this.filteredProps = git.FilterGitConfigProps(this.props, this.searchInput.Value(), this.onlyWithValue)
@@ -89,6 +104,14 @@ func (this *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, SearchKeymap.Quit):
 			this.isExiting = true
 			return this, tea.Quit
+
+		case key.Matches(msg, SearchKeymap.ChangeMode):
+			switch {
+			case this.mode == APP_MODE_LOGS:
+				this.mode = APP_MODE_SEARCH
+			case this.mode == APP_MODE_SEARCH:
+				this.mode = APP_MODE_LOGS
+			}
 
 		case key.Matches(msg, SearchKeymap.Down):
 			if this.cursor < len(this.filteredProps)-1 {
@@ -143,7 +166,7 @@ func (this *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case key.Matches(msg, SearchKeymap.Cancel):
-			this.isEditing = false
+			this.mode = APP_MODE_SEARCH
 			return this, nil
 
 		case key.Matches(msg, SearchKeymap.Help):
@@ -151,7 +174,22 @@ func (this *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return this, nil
 
 		case key.Matches(msg, SearchKeymap.Confirm):
-			if this.isEditing {
+			switch this.mode {
+			case APP_MODE_SEARCH:
+				this.mode = APP_MODE_VALUE
+				this.searchInput.Blur()
+				this.valueInput.Focus()
+
+				oldValue, ok := this.filteredProps[this.cursor].Values[getScopeFromGitScope(this.scope)]
+				if ok {
+					this.valueInput.SetValue(oldValue)
+				} else {
+					this.valueInput.SetValue("")
+				}
+
+				return this, nil
+
+			case APP_MODE_VALUE:
 				name := this.filteredProps[this.cursor].GetName()
 				value := this.valueInput.Value()
 
@@ -160,28 +198,11 @@ func (this *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				return this, Cmd_GitConfigSet(name, value, this.scope)
 			}
-
-			this.isEditing = !this.isEditing
-			oldValue, ok := this.filteredProps[this.cursor].Values[getScopeFromGitScope(this.scope)]
-			if ok {
-				this.valueInput.SetValue(oldValue)
-			} else {
-				this.valueInput.SetValue("")
-			}
-
-			this.searchInput.Blur()
-			this.valueInput.Focus()
-
-			return this, nil
 		}
-
 	}
 
-	if this.isEditing {
-		model, cmd := this.valueInput.Update(msg)
-		this.valueInput = model
-		return this, cmd
-	} else {
+	switch this.mode {
+	case APP_MODE_SEARCH:
 		prevValue := this.searchInput.Value()
 		model, cmd := this.searchInput.Update(msg)
 		this.searchInput = model
@@ -191,41 +212,46 @@ func (this *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return this, cmd
+
+	case APP_MODE_VALUE:
+		model, cmd := this.valueInput.Update(msg)
+		this.valueInput = model
+		return this, cmd
 	}
+
+	return this, nil
 }
 
 func (this *MainModel) View() string {
 	output := ""
 
 	if this.isExiting {
-		return output
-	}
-
-	output += renderEasyHeader(this.scope) + "\n"
-
-	if this.isEditing {
-		output += this.valueInput.View() + "\n"
-
+		return ""
+	} else if this.mode == APP_MODE_LOGS {
+		output += this.logsModel.View()
 	} else {
-		output += this.searchInput.View() + "\n"
-	}
+		output += renderEasyHeader(this.scope) + "\n"
 
-	centerStyle := lipgloss.NewStyle().Width(80).AlignHorizontal(lipgloss.Center)
-
-	output += centerStyle.Render(renderGap(80)) + "\n"
-
-	for index, prop := range this.filteredProps {
-		if index < this.listStart || index > this.listStart+10 {
-			continue
+		if this.mode == APP_MODE_VALUE {
+			output += this.valueInput.View() + "\n"
+		} else if this.mode == APP_MODE_SEARCH {
+			output += this.searchInput.View() + "\n"
 		}
 
-		output += renderProp(prop.GetName(), getValueFromScope(prop, this.scope), getColorFromScope(this.scope), index == this.cursor)
+		output += renderGap(80) + "\n"
+
+		for index, prop := range this.filteredProps {
+			if index < this.listStart || index > this.listStart+10 {
+				continue
+			}
+
+			output += renderProp(prop.GetName(), getValueFromScope(prop, this.scope), getColorFromScope(this.scope), index == this.cursor)
+		}
+
+		output += renderGap(80) + "\n"
+		output += "Last message: " + this.message + "\n"
+		output += CenterStyle.Render(this.help.View(SearchKeymap))
 	}
-
-	output += centerStyle.Render(renderGap(80)) + "\n"
-	output += "Last message: " + this.message + "\n"
-
-	output += lipgloss.NewStyle().Width(80).AlignHorizontal(lipgloss.Center).Render(this.help.View(SearchKeymap))
 
 	return output
 }
@@ -250,6 +276,7 @@ func CreateNewMainModel() *MainModel {
 		searchInput: searchInput,
 		valueInput:  valueInput,
 		help:        help,
+		logsModel:   NewLogsModel(),
 	}
 }
 
@@ -260,7 +287,7 @@ func renderGap(length int) string {
 		result += "-"
 	}
 
-	return result
+	return CenterStyle.Render(result)
 }
 
 func renderEasyHeader(scope GitScope) string {
@@ -331,8 +358,14 @@ func getScopeFromGitScope(gitScope GitScope) string {
 
 // Commands
 
-func Cmd_GetGitConfigEntries() tea.Msg {
-	return git.GetConfigProps()
+type Msg_GetGitConfigProps struct {
+	data []git.GitConfigProp
+}
+
+func Cmd_GetGitConfigEntries() tea.Cmd {
+	return func() tea.Msg {
+		return Msg_GetGitConfigProps{data: git.GetConfigProps()}
+	}
 }
 
 type Msg_DisplayMessage struct {
@@ -375,5 +408,23 @@ func Cmd_GitConfigSet(name string, value string, gitScope GitScope) tea.Cmd {
 			value:   value,
 			scope:   scope,
 		}
+	}
+}
+
+type Msg_ChangeMode struct {
+	mode AppMode
+}
+
+func Cmd_ChangeMode(mode AppMode) tea.Cmd {
+	return func() tea.Msg {
+		return Msg_ChangeMode{mode}
+	}
+}
+
+type Msg_Quit struct{}
+
+func Cmd_Quit() tea.Cmd {
+	return func() tea.Msg {
+		return Msg_Quit{}
 	}
 }

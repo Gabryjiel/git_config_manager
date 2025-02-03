@@ -12,6 +12,7 @@ type searchKeymap struct {
 	FilterOnlyWithValue key.Binding
 	Cancel              key.Binding
 	Confirm             key.Binding
+	ChangeMode          key.Binding
 	Help                key.Binding
 	Quit                key.Binding
 }
@@ -35,7 +36,7 @@ var SearchKeymap = searchKeymap{
 	),
 	FilterOnlyWithValue: key.NewBinding(
 		key.WithKeys("tab"),
-		key.WithHelp("<Tab>", "Only with value"),
+		key.WithHelp("Tab", "Only with value"),
 	),
 	Cancel: key.NewBinding(
 		key.WithKeys("esc"),
@@ -57,6 +58,10 @@ var SearchKeymap = searchKeymap{
 		key.WithKeys("?"),
 		key.WithHelp("?", "help"),
 	),
+	ChangeMode: key.NewBinding(
+		key.WithKeys("ctrl+up"),
+		key.WithHelp("<C-↑>", "Switch view"),
+	),
 	Quit: key.NewBinding(
 		key.WithKeys("ctrl+c"),
 		key.WithHelp("<C-c>", "quit"),
@@ -69,7 +74,7 @@ func (k searchKeymap) ShortHelp() []key.Binding {
 
 func (k searchKeymap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Up, k.Down, k.PageUp, k.PageDown, k.Help},
+		{k.Up, k.Down, k.PageUp, k.PageDown, k.Help, k.ChangeMode},
 		{k.PreviousScope, k.NextScope, k.FilterOnlyWithValue, k.Cancel, k.Quit},
 	}
 }
