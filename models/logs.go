@@ -12,8 +12,10 @@ func NewLogsModel() logsModel {
 	return logsModel{help: help}
 }
 
+type Log string
+
 type logsModel struct {
-	logs   []string
+	logs   []Log
 	cursor MenuCursor
 	help   help.Model
 }
@@ -59,7 +61,7 @@ func (this *logsModel) View() string {
 	output += renderGap(80) + "\n"
 
 	for _, log := range this.logs {
-		output += log + "\n"
+		output += string(log) + "\n"
 	}
 
 	output += renderGap(80) + "\n"
@@ -68,9 +70,23 @@ func (this *logsModel) View() string {
 	return output
 }
 
-func (this *logsModel) PushLog(log string) {
+// Helpers
+
+func (this *logsModel) PushLog(log Log) {
 	this.logs = append(this.logs, log)
 }
+
+type Msg_NewLog struct {
+	data Log
+}
+
+func Cmd_AddLog(log Log) tea.Cmd {
+	return func() tea.Msg {
+		return Msg_NewLog{data: log}
+	}
+}
+
+// Keymap
 
 type logsModelKeymap struct {
 	Up         key.Binding
