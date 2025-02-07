@@ -63,6 +63,7 @@ func renderEasyHeader() string {
 	result := ""
 	result += lipgloss.NewStyle().
 		Width(80).
+		Foreground(lipgloss.ANSIColor(9)).
 		AlignHorizontal(lipgloss.Center).
 		Render("--- gcm v0.0.1 --- " + git.GetGitVersion() + " ---")
 
