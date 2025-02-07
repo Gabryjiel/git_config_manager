@@ -29,7 +29,6 @@ type MainModel struct {
 	filteredProps []git.GitConfigProp
 	scope         GitScope
 	cursor        int
-	message       string
 	listStart     int
 	onlyWithValue bool
 	help          help.Model
@@ -44,10 +43,7 @@ func (this MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case Msg_GitConfigSetResult:
 		if !msg.result {
-			return this, tea.Batch(
-				Cmd_DisplayMessage(msg.message),
-				Cmd_AddLog(msg.command),
-			)
+			return this, Cmd_AddLog(msg.command)
 		}
 
 		this.isEditing = false
@@ -60,29 +56,30 @@ func (this MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		this.valueInput.Reset()
 
-		cmds := tea.Batch(
-			Cmd_DisplayMessage("Changed value of "+msg.name+" to "+msg.value),
-			Cmd_AddLog(msg.command),
-		)
-
-		return this, cmds
-
-	case Msg_DisplayMessage:
-		this.message = msg.message
-		return this, nil
+		return this, Cmd_AddLog(msg.command)
 
 	case Msg_GetGitConfigProps:
 		this.props = msg.data
 		this.filteredProps = msg.data
 		return this, Cmd_AddLog(msg.command)
 
+	case Msg_Refilter:
+		this.filteredProps = git.FilterGitConfigProps(this.props, this.searchInput.Value(), this.onlyWithValue)
+
+		if this.cursor > len(this.filteredProps) {
+			this.cursor = max(0, len(this.filteredProps)-2)
+		}
+
+		if this.listStart > len(this.filteredProps) {
+			this.listStart = max(0, len(this.filteredProps)-10)
+		}
+
 	case tea.KeyMsg:
 		switch {
 
 		case key.Matches(msg, SearchKeymap.FilterOnlyWithValue):
 			this.onlyWithValue = !this.onlyWithValue
-			this.filteredProps = git.FilterGitConfigProps(this.props, this.searchInput.Value(), this.onlyWithValue)
-			return this, nil
+			return this, Cmd_Refilter()
 
 		case key.Matches(msg, SearchKeymap.Quit):
 			return this, Cmd_Quit()
@@ -199,8 +196,7 @@ func (this MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		this.searchInput = model
 
 		if prevValue != this.searchInput.Value() {
-			this.filteredProps = git.FilterGitConfigProps(this.props, this.searchInput.Value(), this.onlyWithValue)
-			return this, cmd
+			return this, tea.Batch(cmd, Cmd_Refilter())
 		}
 
 		return this, cmd
@@ -230,7 +226,6 @@ func (this MainModel) View() string {
 	scopeStyle := lipgloss.NewStyle().Foreground(getColorFromScope(this.scope))
 	scopeInfo := "--- " + scopeStyle.Render("Scope: "+string(this.scope)) + " ---"
 	output += scopeInfo + renderGap(80-len(this.scope)-15) + "\n"
-	output += "Last message: " + this.message + "\n"
 	output += CenterStyle.Render(this.help.View(SearchKeymap))
 
 	return output
@@ -293,16 +288,6 @@ func Cmd_GetGitConfigEntries() tea.Cmd {
 	}
 }
 
-type Msg_DisplayMessage struct {
-	message string
-}
-
-func Cmd_DisplayMessage(message string) tea.Cmd {
-	return func() tea.Msg {
-		return Msg_DisplayMessage{message}
-	}
-}
-
 type Msg_GitConfigSetResult struct {
 	command string
 	result  bool
@@ -337,5 +322,13 @@ func Cmd_GitConfigSet(name string, value string, gitScope GitScope) tea.Cmd {
 			scope:   scope,
 			command: command,
 		}
+	}
+}
+
+type Msg_Refilter struct{}
+
+func Cmd_Refilter() tea.Cmd {
+	return func() tea.Msg {
+		return Msg_Refilter{}
 	}
 }
