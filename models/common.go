@@ -68,7 +68,3 @@ func renderEasyHeader() string {
 
 	return result
 }
-
-func renderHeaderScope(gitScope GitScope) string {
-	return lipgloss.NewStyle().Foreground(getColorFromScope(gitScope)).Render(getScopeFromGitScope(gitScope))
-}
