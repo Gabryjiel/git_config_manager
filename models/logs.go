@@ -1,31 +1,41 @@
 package models
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
-func NewLogsModel() logsModel {
+func NewLogsModel() LogsModel {
 	help := help.New()
 
-	return logsModel{help: help}
+	return LogsModel{help: help}
 }
 
-type Log string
+type Log struct {
+	message   string
+	timestamp time.Time
+}
 
-type logsModel struct {
+type LogsModel struct {
 	logs   []Log
 	cursor MenuCursor
 	help   help.Model
 }
 
-func (this *logsModel) Init() tea.Cmd {
+func (this LogsModel) Init() tea.Cmd {
 	return nil
 }
 
-func (this *logsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (this LogsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case Msg_NewLog:
+		this.logs = append(this.logs, Log(msg))
+
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, LogsModelKeyMap.Up):
@@ -41,7 +51,7 @@ func (this *logsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			this.cursor.moveDown(len(this.logs), 10)
 
 		case key.Matches(msg, LogsModelKeyMap.ChangeMode):
-			return this, Cmd_ChangeMode(APP_MODE_SEARCH)
+			return this, Cmd_SwitchSubmodel(APP_MODEL_LIST)
 
 		case key.Matches(msg, LogsModelKeyMap.Help):
 			this.help.ShowAll = !this.help.ShowAll
@@ -54,14 +64,22 @@ func (this *logsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return this, nil
 }
 
-func (this *logsModel) View() string {
+func (this LogsModel) View() string {
 	output := ""
 
-	output += renderEasyHeader(0) + "\n"
+	output += "Logs (git commands)" + "\n"
 	output += renderGap(80) + "\n"
 
+	logStyle := lipgloss.NewStyle().Width(80).PaddingLeft(1).PaddingRight(1)
+	timeStyle := lipgloss.NewStyle().Foreground(lipgloss.ANSIColor(15))
+
 	for _, log := range this.logs {
-		output += string(log) + "\n"
+		formatted := fmt.Sprintf("[%s] %s", timeStyle.Render(log.timestamp.Format(time.TimeOnly)), log.message)
+		output += logStyle.Render(formatted) + "\n"
+	}
+
+	if len(this.logs) == 0 {
+		output += " No logs \n"
 	}
 
 	output += renderGap(80) + "\n"
@@ -72,17 +90,15 @@ func (this *logsModel) View() string {
 
 // Helpers
 
-func (this *logsModel) PushLog(log Log) {
+func (this *LogsModel) PushLog(log Log) {
 	this.logs = append(this.logs, log)
 }
 
-type Msg_NewLog struct {
-	data Log
-}
+type Msg_NewLog Log
 
-func Cmd_AddLog(log Log) tea.Cmd {
+func Cmd_AddLog(log string) tea.Cmd {
 	return func() tea.Msg {
-		return Msg_NewLog{data: log}
+		return Msg_NewLog{message: log, timestamp: time.Now()}
 	}
 }
 
