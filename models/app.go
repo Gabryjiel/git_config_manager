@@ -5,30 +5,45 @@ import tea "github.com/charmbracelet/bubbletea"
 func NewAppModel() *AppModel {
 	model := AppModel{
 		isExiting: false,
-		cursor:    MODEL_ID_SEARCH,
+		cursor:    APP_MODEL_LIST,
+		models: [2]tea.Model{
+			CreateNewMainModel(),
+			NewLogsModel(),
+		},
 	}
 
 	return &model
 }
 
-type AppModel struct {
-	isExiting bool
-	models    [2]tea.Model
-	cursor    AppSubmodelId
+type Submodel interface {
+	tea.Model
+	Help() string
 }
 
 type AppSubmodelId int
 
 const (
-	MODEL_ID_SEARCH AppSubmodelId = iota
-	MODEL_ID_SCOPE
+	APP_MODEL_LIST AppSubmodelId = iota
+	APP_MODEL_LOGS
 )
 
-func (this *AppModel) Init() tea.Cmd {
-	return nil
+type AppModel struct {
+	isExiting bool
+	cursor    AppSubmodelId
+	models    [2]tea.Model
 }
 
-func (this *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (this AppModel) Init() tea.Cmd {
+	var cmds []tea.Cmd
+
+	for _, submodel := range this.models {
+		cmds = append(cmds, submodel.Init())
+	}
+
+	return tea.Batch(cmds...)
+}
+
+func (this AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
@@ -36,27 +51,59 @@ func (this *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			this.isExiting = true
 			return this, tea.Quit
 		}
-	case AppSubmodelId:
-		this.cursor = msg
-		return this, this.models[this.cursor].Init()
+
+	case Msg_SwitchSubmodel:
+		this.cursor = msg.submodelId
+
+		return this, nil
+
+	case Msg_NewLog:
+		submodel, cmd := this.models[APP_MODEL_LOGS].Update(msg)
+		this.models[APP_MODEL_LOGS] = submodel
+		return this, cmd
+
+	case Msg_Quit:
+		this.isExiting = true
+		return this, tea.Quit
 	}
 
-	_, cmd := this.models[this.cursor].Update(msg)
+	submodel, cmd := this.models[this.cursor].Update(msg)
+	this.models[this.cursor] = submodel
+
 	return this, cmd
 }
 
-func (this *AppModel) View() string {
+func (this AppModel) View() string {
+	output := ""
+
 	if this.isExiting {
-		return ""
+		return output
 	}
 
-	return this.models[this.cursor].View()
+	output += renderEasyHeader() + "\n"
+	output += renderGap(80) + "\n"
+
+	output += this.models[this.cursor].View() + "\n"
+
+	return output
 }
 
 // Commands
 
-func SwitchSubmodel(submodelId AppSubmodelId) tea.Cmd {
+type Msg_SwitchSubmodel struct {
+	submodelId AppSubmodelId
+}
+
+func Cmd_SwitchSubmodel(submodelId AppSubmodelId) tea.Cmd {
 	return func() tea.Msg {
-		return submodelId
+		return Msg_SwitchSubmodel{submodelId}
+	}
+}
+
+type Msg_Quit struct{}
+
+func Cmd_Quit() tea.Cmd {
+	return func() tea.Msg {
+		return Msg_Quit{}
 	}
 }
