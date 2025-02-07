@@ -56,7 +56,7 @@ func renderGap(length int) string {
 		result += "-"
 	}
 
-	return CenterStyle.Render(result)
+	return result
 }
 
 func renderEasyHeader() string {
