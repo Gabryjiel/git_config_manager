@@ -220,7 +220,7 @@ func (this MainModel) View() string {
 			continue
 		}
 
-		output += renderProp(prop.GetName(), getValueFromScope(prop, this.scope), getColorFromScope(this.scope), index == this.cursor)
+		output += renderProp(prop.GetName(), getValueFromScope(prop, this.scope), getColorFromScope(this.scope), index == this.cursor, this.isEditing)
 	}
 
 	scopeStyle := lipgloss.NewStyle().Foreground(getColorFromScope(this.scope))
@@ -259,11 +259,15 @@ func CreateNewMainModel() MainModel {
 	}
 }
 
-func renderProp(label, value string, valueColor lipgloss.ANSIColor, isSelected bool) string {
+func renderProp(label, value string, valueColor lipgloss.ANSIColor, isSelected, isDisabled bool) string {
 	style := lipgloss.NewStyle()
 
 	if isSelected {
 		style = style.Background(lipgloss.ANSIColor(8))
+	}
+
+	if isDisabled {
+		style = style.Foreground(lipgloss.ANSIColor(15))
 	}
 
 	propLabel := style.PaddingLeft(1).Render(label)
