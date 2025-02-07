@@ -59,12 +59,12 @@ func renderGap(length int) string {
 	return CenterStyle.Render(result)
 }
 
-func renderEasyHeader(scope GitScope) string {
+func renderEasyHeader() string {
 	result := ""
 	result += lipgloss.NewStyle().
 		Width(80).
 		AlignHorizontal(lipgloss.Center).
-		Render("--- gcm v0.0.1 --- " + git.GetGitVersion() + " --- Scope: " + renderHeaderScope(scope) + " --- ")
+		Render("--- gcm v0.0.1 --- " + git.GetGitVersion() + " ---")
 
 	return result
 }
