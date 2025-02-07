@@ -22,7 +22,6 @@ const (
 )
 
 type MainModel struct {
-	isExiting     bool
 	isEditing     bool
 	searchInput   textinput.Model
 	valueInput    textinput.Model
