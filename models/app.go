@@ -15,11 +15,6 @@ func NewAppModel() *AppModel {
 	return &model
 }
 
-type Submodel interface {
-	tea.Model
-	Help() string
-}
-
 type AppSubmodelId int
 
 const (
