@@ -8,11 +8,13 @@ const (
 	GIT_CONFIG_PROP__TYPE_STRING = iota
 )
 
+type GitConfigPropValues map[string]string
+
 type GitConfigProp struct {
 	Section string
 	Key     string
 	Type    int
-	Values  map[string]string
+	Values  GitConfigPropValues
 }
 
 func (this *GitConfigProp) String() string {
@@ -25,22 +27,4 @@ func (this *GitConfigProp) String() string {
 
 func (this *GitConfigProp) GetName() string {
 	return fmt.Sprintf("%s.%s", this.Section, this.Key)
-}
-
-type GitConfigEntryValues struct {
-	Local  string
-	Global string
-	System string
-}
-
-func (this *GitConfigEntryValues) append(values GitConfigEntryValues) {
-	if len(values.Local) != 0 {
-		this.Local = values.Local
-	}
-	if len(values.Global) != 0 {
-		this.Global = values.Global
-	}
-	if len(values.System) != 0 {
-		this.System = values.System
-	}
 }

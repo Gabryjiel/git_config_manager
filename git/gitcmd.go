@@ -1,7 +1,7 @@
 package git
 
 import (
-	"log"
+	"errors"
 	"maps"
 	"slices"
 	"strings"
@@ -27,67 +27,106 @@ const (
 type GitConfigEntry struct {
 	Name  string
 	Value string
+	Scope string
 }
 
-func GetConfigProps() []GitConfigProp {
-	contents, err := utils.ExecuteCommand("git", "config", "list", "--show-scope")
+type GitConfigMap map[string]GitConfigProp
 
-	if err != nil {
-		log.Fatalln("Could not find config list")
+func ParseScopedGitConfigList(contents string) []GitConfigEntry {
+	lines := strings.Split(contents, "\n")
+	entries := make([]GitConfigEntry, len(lines))
+	for index, line := range lines {
+		entry, err := ParseScopedGitEntry(line)
+		if err != nil {
+			continue
+		}
+
+		entries[index] = entry
 	}
 
-	configMap := make(map[string]GitConfigProp)
+	return entries
+}
 
-	configLabels := GetConfigLabels()
-	for _, label := range configLabels {
+func ParseScopedGitEntry(toParse string) (GitConfigEntry, error) {
+	parsedEntry := GitConfigEntry{}
+
+	splitted := strings.Split(toParse, "\t")
+	if len(splitted) != 2 {
+		return parsedEntry, errors.New("Invalid string (no single \\t)")
+	}
+
+	parsedEntry.Scope = splitted[0]
+
+	splitted = strings.Split(splitted[1], "=")
+	if len(splitted) != 2 {
+		return parsedEntry, errors.New("Invalid string (no single =)")
+	}
+
+	parsedEntry.Name = splitted[0]
+	parsedEntry.Value = splitted[1]
+
+	return parsedEntry, nil
+}
+
+func (this *GitConfigMap) AddEntry(entry GitConfigEntry) {
+	_, alreadyExists := (*this)[entry.Name]
+
+	if alreadyExists {
+		(*this)[entry.Name].Values[entry.Scope] = entry.Value
+	} else {
+		splitSectionKey := strings.SplitN(entry.Name, ".", 2)
+		section := splitSectionKey[0]
+		key := splitSectionKey[1]
+
+		valuesMap := make(GitConfigPropValues)
+		valuesMap[entry.Scope] = entry.Value
+
+		(*this)[entry.Name] = GitConfigProp{
+			Section: section,
+			Key:     key,
+			Type:    0,
+			Values:  valuesMap,
+		}
+	}
+}
+
+func (this *GitConfigMap) AddEntries(entries []GitConfigEntry) {
+	for _, entry := range entries {
+		this.AddEntry(entry)
+	}
+}
+
+func (this *GitConfigMap) AddLabel(label string) {
+	_, alreadyExists := (*this)[label]
+
+	if !alreadyExists {
 		splitted := strings.SplitN(label, ".", 2)
 
 		if len(splitted) != 2 {
-			continue
+			return
 		}
 
 		section := splitted[0]
 		key := splitted[1]
+		lowerLabel := strings.ToLower(label)
 
-		configMap[label] = GitConfigProp{
+		(*this)[lowerLabel] = GitConfigProp{
 			Section: section,
-			Key:     key,
+			Key:     strings.ToLower(key),
 			Values:  make(map[string]string),
 			Type:    0,
 		}
 	}
+}
 
-	lines := strings.Split(contents, "\n")
-	for _, line := range lines {
-		split := strings.Split(line, "\t")
-		scope := split[0]
-		entry := split[1]
-
-		splitEntry := strings.SplitN(entry, "=", 2)
-		sectionKey := splitEntry[0]
-		value := splitEntry[1]
-
-		splitSectionKey := strings.SplitN(sectionKey, ".", 2)
-		section := splitSectionKey[0]
-		key := splitSectionKey[1]
-
-		_, alreadyExists := configMap[sectionKey]
-		if alreadyExists {
-			configMap[sectionKey].Values[scope] = value
-		} else {
-			valuesMap := make(map[string]string)
-			valuesMap[scope] = value
-
-			configMap[sectionKey] = GitConfigProp{
-				Section: section,
-				Key:     key,
-				Type:    GIT_CONFIG_PROP__TYPE_STRING,
-				Values:  valuesMap,
-			}
-		}
+func (this *GitConfigMap) AddLabels(labels []string) {
+	for _, label := range labels {
+		this.AddLabel(label)
 	}
+}
 
-	configSlice := slices.Collect(maps.Values(configMap))
+func (this *GitConfigMap) ToSlice() []GitConfigProp {
+	configSlice := slices.Collect(maps.Values((*this)))
 	slices.SortFunc(configSlice, func(a, b GitConfigProp) int {
 		aName := a.GetName()
 		bName := b.GetName()

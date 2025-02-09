@@ -3,6 +3,7 @@ package models
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/Gabryjiel/git_config_manager/git"
 	"github.com/Gabryjiel/git_config_manager/utils"
@@ -61,7 +62,13 @@ func (this MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case Msg_GetGitConfigProps:
 		this.props = msg.data
 		this.filteredProps = msg.data
-		return this, Cmd_AddLog(msg.command)
+
+		var cmds []tea.Cmd
+		for _, command := range msg.commands {
+			cmds = append(cmds, Cmd_AddLog(command))
+		}
+
+		return this, tea.Batch(cmds...)
 
 	case Msg_Refilter:
 		this.filteredProps = git.FilterGitConfigProps(this.props, this.searchInput.Value(), this.onlyWithValue)
@@ -280,15 +287,47 @@ func renderProp(label, value string, valueColor lipgloss.ANSIColor, isSelected, 
 // Commands
 
 type Msg_GetGitConfigProps struct {
-	data    []git.GitConfigProp
-	command string
+	data     []git.GitConfigProp
+	commands []string
+	result   bool
+	message  string
 }
 
 func Cmd_GetGitConfigEntries() tea.Cmd {
 	return func() tea.Msg {
+		command := "git config list --show-scope"
+		contents, err := utils.ExecuteSimpleCommand(command)
+
+		msg := Msg_GetGitConfigProps{
+			result:   false,
+			commands: []string{command},
+			data:     nil,
+		}
+
+		if err != nil {
+			msg.message = err.Error()
+			return msg
+		}
+
+		entries := git.ParseScopedGitConfigList(contents)
+
+		anotherCommand := "git help -c"
+		contents, err = utils.ExecuteSimpleCommand(anotherCommand)
+		if err != nil {
+			msg.message = err.Error()
+			return msg
+		}
+		labels := strings.Split(contents, "\n")
+
+		configMap := make(git.GitConfigMap)
+		configMap.AddLabels(labels)
+		configMap.AddEntries(entries)
+
 		return Msg_GetGitConfigProps{
-			data:    git.GetConfigProps(),
-			command: "git config list --show-scope",
+			data:     configMap.ToSlice(),
+			commands: []string{command, anotherCommand},
+			result:   true,
+			message:  "",
 		}
 	}
 }
@@ -321,8 +360,6 @@ func Cmd_GitConfigSet(name string, value string, gitScope GitScope) tea.Cmd {
 			msg.message = err.Error()
 			msg.result = false
 		}
-
-		fmt.Println(content, err)
 
 		return msg
 	}
