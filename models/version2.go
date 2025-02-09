@@ -225,7 +225,8 @@ func (this MainModel) View() string {
 
 	scopeStyle := lipgloss.NewStyle().Foreground(getColorFromScope(this.scope))
 	scopeInfo := "--- " + scopeStyle.Render("Scope: "+string(this.scope)) + " ---"
-	output += scopeInfo + renderGap(80-len(this.scope)-15) + "\n"
+	filterInfo := " Only with value: " + renderBooleanSymbol(this.onlyWithValue) + " ---"
+	output += scopeInfo + filterInfo + renderGap(80-len(this.scope)-len(filterInfo)-15) + "\n"
 	output += CenterStyle.Render(this.help.View(SearchKeymap))
 
 	return output

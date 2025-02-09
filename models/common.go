@@ -69,3 +69,11 @@ func renderEasyHeader() string {
 
 	return result
 }
+
+func renderBooleanSymbol(value bool) string {
+	if value {
+		return "T"
+	}
+
+	return "F"
+}
