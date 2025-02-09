@@ -304,29 +304,27 @@ type Msg_GitConfigSetResult struct {
 
 func Cmd_GitConfigSet(name string, value string, gitScope GitScope) tea.Cmd {
 	return func() tea.Msg {
-		scope := getScopeFromGitScope(gitScope)
+		scope := string(gitScope)
 		command := fmt.Sprintf("git config set --%s %s %s", scope, name, value)
-		content, err := utils.ExecuteCommand("git", "config", "set", "--"+scope, name, value)
+		content, err := utils.ExecuteSimpleCommand(command)
 
-		if err != nil {
-			return Msg_GitConfigSetResult{
-				message: err.Error(),
-				result:  false,
-				name:    name,
-				value:   value,
-				scope:   scope,
-				command: command,
-			}
-		}
-
-		return Msg_GitConfigSetResult{
-			result:  true,
-			message: content,
+		msg := Msg_GitConfigSetResult{
 			name:    name,
 			value:   value,
 			scope:   scope,
 			command: command,
+			result:  true,
+			message: content,
 		}
+
+		if err != nil {
+			msg.message = err.Error()
+			msg.result = false
+		}
+
+		fmt.Println(content, err)
+
+		return msg
 	}
 }
 
